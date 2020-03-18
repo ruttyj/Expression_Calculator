@@ -1,9 +1,17 @@
 
+
 # Expression Calculator
 
 ### (Work in progress)
 
-Inspired by [Calc - A new kind of Calculator](https://play.google.com/store/apps/details?id=mobi.appplus.calculator.plus) this calculator allows for individual lines or nodes to be referenced during calculations.
+Inspired by [Calc - A new kind of Calculator](https://play.google.com/store/apps/details?id=mobi.appplus.calculator.plus). 
+
+
+Features:
+ - Reference the value of a expression using `#(expressionNum)`
+ - Reference the value of a node using `@(nodeId)`
+ - Add percentage onto a base value `200 + 15% = 230`
+
 
 Drag-and-drop expression building coming soon.
 
