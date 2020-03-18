@@ -8,7 +8,7 @@ Inspired by [Calc - A new kind of Calculator](https://play.google.com/store/apps
 
 
 Features:
- - Reference the value of a expression using `#(expressionNum)`
+ - Reference an expression using `#(expressionNum)`
  - Reference the value of a node using `@(nodeId)`
  - Add percentage onto a base value `200 + 15% = 230`
 
