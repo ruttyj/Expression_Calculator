@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>CodePen - Expression Calculator - Vue Composition API (Github -Version)</title>
+  <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css'>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Material+Icons'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css'><link rel="stylesheet" href="./style.css">
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<script type="text/x-template" id="node">
+  <div class="node_wrapper">
+    
+    
+    <!-- Brackets -->
+    <div v-if="node.type === 'parenthesis'" class="op_node">
+      
+      <!-- Node Name -->
+      <div class="node_name">
+        <v-icon class="handle">mdi-drag-horizontal</v-icon>
+        <div class="node_parenthesis">
+          (
+        </div>
+      </div>
+      
+      
+       <!-- Node Args -->
+      <div class="node_args">
+          <div class="min_draggable" style="display: flex;">
+            <node 
+                :node="node.content"
+                :node-controller="nodeController"
+            />
+          </div>
+      </div>
+      <div class="node_name">
+        <div class="node_parenthesis">
+          )
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    <!-- Operators -->
+    <div v-else-if="node.type === 'op'" class="op_node">
+      
+      <!-- Node Name -->
+      <div class="node_name">
+        <v-icon class="handle">mdi-drag-horizontal</v-icon>
+        <input 
+               type="text" 
+               :size="inputSize(node.op)" 
+               class="centered expression_input" 
+               :value="node.op" 
+               @change="nodeController.updateNodeAttr(node.id, {op: $event.target.value})"/>
+      </div>
+      
+       <!-- Node Args -->
+      <div class="node_args">
+        <template>
+          <draggable :list="node.args" @change="nodeController.onSort(node.id, $event)" class="min_draggable" style="display: flex;" tag="div" :group="{ name: 'g1' }" handle=".handle">
+            <template v-for="(arg, i) in node.args">
+              <node :key="`arg-${i}-${arg.id}`" 
+                    :node="arg" 
+                    :node-controller="nodeController"
+              />
+            </template>
+           </draggable>
+        </template>
+      </div>
+    </div>
+    
+    <!-- Variable | Constant -->
+    <div v-else class="op_node">
+      <div class="node_name">
+        <v-icon class="handle">mdi-drag-horizontal</v-icon>
+        
+        <template v-if="node.type === 'const'">
+          <input type="text" 
+                 :size="inputSize(node.value)" 
+                 class="centered expression_input" 
+                 :value="node.value" 
+                 @change="nodeController.updateNodeAttr(node.id, {value: $event.target.value})"
+                 />
+        </template>
+        <template v-else-if="node.type === 'var'">
+          <input type="text" 
+                 :size="inputSize(node.name)" 
+                 class="centered expression_input" 
+                 filled hide-details 
+                 :value="node.name" 
+                 @change="nodeController.updateNodeAttr(node.id, {name: $event.target.value})"
+                 />
+        </template>
+      </div>
+    </div>
+  </div>
+</script>
+  
+<script type="text/x-template" id="nodeDisplay">
+  <span class="group" :style="{'--primary': getExpressionColor(node.id)}">
+    
+    <!-- Brackets -->
+    <template v-if="node.type === 'parenthesis'">
+      (
+      <node-display 
+        :node="node.content"
+        :node-controller="nodeController"
+        :modifying-node.sync="modifyingId"
+        :selected-node.sync="selectedId"
+        :expression-color="expressionColor"
+        :color="getExpressionColor(node.id)"
+        :calc-key-pad="calcKeyPad"
+      />
+      )
+    </template>
+    
+    
+    <!-- Operators -->
+    <span v-else-if="node.type === 'op'">
+      
+       <!-- Node Args -->
+      <span>
+        <template>
+          <template v-if="isNodeStandardOp(node)">
+            <node-display 
+              :node="node.args[0]" 
+              :node-controller="nodeController"
+              :modifying-node.sync="modifyingId"
+              :selected-node.sync="selectedId"
+              :expression-color="expressionColor"
+              :color="getExpressionColor(node.args[0].id)"
+              :calc-key-pad="calcKeyPad"
+            /><span class="group"><input 
+               type="text" 
+               :size="inputSize(node.op)" 
+               :value="node.op" 
+               @change="nodeController.updateNodeAttr(node.id, {op: $event.target.value})"
+            /></span><node-display 
+              :node="node.args[1]" 
+              :node-controller="nodeController"
+              :modifying-node.sync="modifyingId"
+              :selected-node.sync="selectedId"
+              :expression-color="expressionColor"
+              :color="getExpressionColor(node.args[1].id)"
+              :calc-key-pad="calcKeyPad"
+            />
+          </template>
+          <template v-else>
+            <template v-for="(arg, i) in node.args">
+              <node-display :key="`arg-${i}-${arg.id}`" 
+                :node="arg" 
+                :node-controller="nodeController"
+                :modifying-node.sync="modifyingId"
+                :selected-node.sync="selectedId"
+                :expression-color="expressionColor"
+                :color="getExpressionColor(arg.id)"
+                :calc-key-pad="calcKeyPad"
+              />
+            </template>
+          </template>
+        </template>
+      </span>
+    </span>
+    
+    <span v-else-if="node.type === 'let'">
+      <input class="group"
+               type="text" 
+               :size="inputSize(node.name)" 
+               :value="node.name" 
+               @change="nodeController.updateNodeAttr(node.id, {name: $event.target.value})"/>
+      = <node-display 
+        :node="node.content"
+        :node-controller="nodeController"
+        :modifying-node.sync="modifyingId"
+        :selected-node.sync="selectedId"
+        :expression-color="expressionColor"
+        :color="getExpressionColor(node.content.id)"
+      />
+    </span>
+    
+    <!-- Function -->
+    <span v-else-if="node.type === 'func'">
+      <span class="group">
+        <template>
+          
+          <template v-if="node.name === 'node'">
+            <template v-if="isModifying(node.args[0].id)">
+              <span class="func_name">
+                <span class="ref">@
+                <node-display
+                  :node="node.args[0]" 
+                  :node-controller="nodeController"
+                  :modifying-node.sync="modifyingId"
+                  :selected-node.sync="selectedId"
+                  :expression-color="expressionColor"
+                  :color="getExpressionColor(node.args[0].id)"
+                  :calc-key-pad="calcKeyPad"
+                />
+                </span>
+              </span>
+            </template>
+            <template v-else>
+              <span :style="{'--primary': getExpressionColor(node.id)}" class="ans func_name"  @dblclick="toggleIsModifying(node.args[0].id)" @click="toggleSelected(node.id)">
+                 {{nodeController.getAns(node.id)}}
+              </span>
+            </template>
+          </template>
+          
+          <template v-else-if="node.name === 'line'">
+            <template v-if="isModifying(node.args[0].id)">
+              <span class="func_name">
+                <span class="ref">#
+                <node-display
+                  :node="node.args[0]" 
+                  :node-controller="nodeController"
+                  :modifying-node.sync="modifyingId"
+                  :selected-node.sync="selectedId"
+                  :expression-color="expressionColor"
+                  :color="getExpressionColor(node.args[0].id)"
+                  :calc-key-pad="calcKeyPad"
+                />
+                </span>
+              </span>
+            </template>
+            <template v-else>
+              <span :style="{'--primary': calcKeyPad.expressionColor.value[calcKeyPad.expressionQueue.value[node.args[0].value-1]]}" class="ans func_name" @dblclick="toggleIsModifying(node.args[0].id)" @click="toggleSelected(node.id)">{{nodeController.getAns(node.id)}}</span>
+            </template>
+          </template>
+          <template v-else-if="node.name === 'percent'">
+            <template>
+              <span :style="{'--primary': calcKeyPad.expressionColor.value[calcKeyPad.expressionQueue.value[node.args[0].value-1]]}" class="ans func_name" @dblclick="toggleIsModifying(node.args[0].id)" @click="toggleSelected(node.id)"><node-display
+                  :node="node.args[0]" 
+                  :node-controller="nodeController"
+                  :modifying-node.sync="modifyingId"
+                  :selected-node.sync="selectedId"
+                  :expression-color="expressionColor"
+                  :color="getExpressionColor(node.args[0].id)"
+                  :calc-key-pad="calcKeyPad"
+                ></node-display>%</span>
+            </template>
+          </template>
+          <template v-else-if="node.name === 'plusPercent'">
+            <template>
+              <span :style="{'--primary': calcKeyPad.expressionColor.value[calcKeyPad.expressionQueue.value[node.args[0].value-1]]}" class="ans func_name" @dblclick="toggleIsModifying(node.args[0].id)" @click="toggleSelected(node.id)"><node-display
+                  :node="node.args[0]" 
+                  :node-controller="nodeController"
+                  :modifying-node.sync="modifyingId"
+                  :selected-node.sync="selectedId"
+                  :expression-color="expressionColor"
+                  :color="getExpressionColor(node.args[0].id)"
+                  :calc-key-pad="calcKeyPad"
+                ></node-display> <node-display
+                  :node="node.args[2]" 
+                  :node-controller="nodeController"
+                  :modifying-node.sync="modifyingId"
+                  :selected-node.sync="selectedId"
+                  :expression-color="expressionColor"
+                  :color="getExpressionColor(node.args[2].id)"
+                  :calc-key-pad="calcKeyPad"
+                ></node-display> <node-display
+                  :node="node.args[1]" 
+                  :node-controller="nodeController"
+                  :modifying-node.sync="modifyingId"
+                  :selected-node.sync="selectedId"
+                  :expression-color="expressionColor"
+                  :color="getExpressionColor(node.args[1].id)"
+                  :calc-key-pad="calcKeyPad"
+                ></node-display></span>
+            </template>
+          </template>
+          
+          <template v-else>
+            <input 
+               type="text" 
+               :size="inputSize(node.name)" 
+               :value="node.name" 
+               @change="nodeController.updateNodeAttr(node.id, {name: $event.target.value})"/>
+            (
+            <template v-for="(arg, i) in node.args">
+              <node-display :key="`arg-${i}-${arg.id}`" 
+                            :node="arg" 
+                            :node-controller="nodeController"
+                            :modifying-node.sync="modifyingId"
+                            :selected-node.sync="selectedId"
+                            :expression-color="expressionColor"
+                            :color="getExpressionColor(arg.id)"
+                            :calc-key-pad="calcKeyPad"
+                            /><template v-if="i != node.args.length-1">,</template>
+            </template>
+            )
+          </template>
+        </template>
+      </span>
+    </span>
+    
+    
+    <!-- Variable | Constant -->
+    <template v-else>
+        <template v-if="node.type === 'const'">
+          <template v-if="isModifying(node.id)">
+            <input type="text" 
+                 ref="input"
+                 :size="inputSize(node.value)" 
+                 :value="node.value" 
+                 @blur="clearModifying(node.id)"
+                 @change="nodeController.updateNodeAttr(node.id, {value: $event.target.value})"
+                 />
+          </template>
+          <template v-else>
+            <span :class="{group: true, input: true, active: (selectedId === node.id)}" @dblclick="toggleIsModifying(node.id)" @click="toggleSelected(node.id)">{{node.value}}</span>
+          </template>
+          
+        </template>
+        <template v-else-if="node.type === 'var'">
+          <input type="text" 
+                 ref="input"
+                 :size="inputSize(node.name)" 
+                 filled hide-details 
+                 :value="node.name" 
+                 @change="nodeController.updateNodeAttr(node.id, {name: $event.target.value})"
+                 />
+        </template>
+    </template>
+  </span>
+</script>
+  
+
+
+
+<div id="app">
+
+  <v-app id="inspire" dark v-cloak>
+    <v-container fluid>
+
+      <!-- Imput Player Stats -->
+      <v-card>
+        <v-toolbar color="primary" dark flat>
+          <v-toolbar-title>[ ⇢ Experimental ⇠ ] Expression Calculator</v-toolbar-title>
+          <v-spacer></v-spacer>
+        </v-toolbar>
+        <v-card flat color="transparent" tile>
+
+          <v-card flat tile class="pa-4" >
+            
+            
+            
+            
+            <v-row cols="12" >
+              <v-col cols="12">
+                <table class="calc_keypad">
+                  <tr>
+                    <td colspan="4">
+                      
+                      <div class="calc_display">
+                        <template v-for="(expressionId, i) in calcKeyPad.expressionQueue.value" >
+                          <v-row :key="`${i}-{${expressionId}}`">
+                            <v-col cols="2" class="expression_id" @click="calcKeyPad.keyPress(`#${i+1}`)">
+                              <span style="color:#131212;">{{i+1}}</span>
+                            </v-col>
+                            <v-col cols="10"  class="eval_expression">
+                              <node-display 
+                                  :node="calcKeyPad.nodeController.buildTreeNode(expressionId)" 
+                                  :node-controller="calcKeyPad.nodeController"
+                                  :modifying-node.sync="modifyingId"
+                                  :selected-node.sync="selectedId"
+                                  :expression-color="calcKeyPad.expressionColor.value"
+                                  :calc-key-pad="calcKeyPad"
+                              ></node-display>
+                              <template v-if="calcKeyPad.nodeController.nodeMap.value[expressionId].type === 'let'">
+                                 =
+                                <span :style="{'--primary': getExpressionColor(expressionId)}" class="ans" ><input readonly class="ans" :value="calcKeyPad.nodeController.getAns(expressionId)" :size="String(calcKeyPad.nodeController.getAns(expressionId)).length"/></span>
+                              </template>
+                              <template v-else>
+                                 = 
+                                <span :style="{'--primary': getExpressionColor(expressionId)}" class="ans"><input readonly class="ans" :value="calcKeyPad.nodeController.getAns(expressionId)" :size="String(calcKeyPad.nodeController.getAns(expressionId)).length"/></span>
+                              </template>
+                            </v-col>
+                          </v-row>
+                        </template>
+                      </div>
+                      <div :class="{calc_main_display: true, parse_error: calcKeyPad.expressionParseError.value}">
+                        <div class="parse_error_message" v-if="calcKeyPad.expressionParseError.value">
+                          Invalid Expression
+                        </div>
+                        <input type="text" ref="main_input" class="main_input" v-model="calcKeyPad.currentDisplayLine.value" @keyup.enter="calcKeyPad.enterPress()">
+                      </div>
+                    </td>
+                  </tr>
+                  <tbody class="num_pad">
+                    <tr>
+                      <td @click="calcKeyPad.clearCurrentLine()"><v-icon>mdi-broom</v-icon></td>
+                      <td @click="calcKeyPad.backspace()"><v-icon>mdi-backspace</v-icon></td>
+                      <td @click="calcKeyPad.keyPress(`#${calcKeyPad.expressionQueue.value.length}`)">ANS</td>
+                      <td @click="calcKeyPad.keyPress(`/`)"><v-icon>mdi-division</v-icon></td>
+                    </tr>
+                    <tr>
+                      <td @click="calcKeyPad.keyPress(`()`, -1)" class="num">( )</td>
+                      <td @click="calcKeyPad.keyPress(`^`)" class="num"><v-icon>mdi-chevron-up</v-icon></td>
+                      <td @click="calcKeyPad.keyPress(`%`)" class="num"><v-icon>mdi-percent</v-icon></td>
+                      <td @click="calcKeyPad.keyPress(`*`)"><v-icon>mdi-close</v-icon></td>
+                    </tr>
+                    <tr>
+                      <td @click="calcKeyPad.keyPress(`7`)" class="num">7</td>
+                      <td @click="calcKeyPad.keyPress(`8`)" class="num">8</td>
+                      <td @click="calcKeyPad.keyPress(`9`)" class="num">9</td>
+                      <td @click="calcKeyPad.keyPress(`-`)"><v-icon>mdi-minus</v-icon></td>
+                    </tr>
+                    <tr>
+                      <td @click="calcKeyPad.keyPress(`4`)" class="num">4</td>
+                      <td @click="calcKeyPad.keyPress(`5`)" class="num">5</td>
+                      <td @click="calcKeyPad.keyPress(`6`)" class="num">6</td>
+                      <td @click="calcKeyPad.keyPress(`+`)"><v-icon>mdi-plus</v-icon></td>
+                    </tr>
+                    <tr>
+                      <td @click="calcKeyPad.keyPress(`1`)" class="num">1</td>
+                      <td @click="calcKeyPad.keyPress(`2`)" class="num">2</td>
+                      <td @click="calcKeyPad.keyPress(`3`)" class="num">3</td>
+                      <td rowspan="2" class="equal_key" @click="calcKeyPad.enterPress()"><v-icon>mdi-equal</v-icon></td>
+                    </tr>
+                    <tr>
+                      <td @click="calcKeyPad.keyPress(`0`)" class="num">0</td>
+                      <td @click="calcKeyPad.keyPress(`00`)" class="num">00</td>
+                      <td @click="calcKeyPad.keyPress(`.`)" class="num">.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </v-col>
+            </v-row>
+            
+            {{calcKeyPad.nodeController.getAns(28)}}
+                     
+  
+            <v-row>
+                <v-col cols="4">
+                  Expression Trees
+                  <template v-for="(tree, nodeId) in calcKeyPad.expressionTrees.value">
+                    <div :key="nodeId">
+                      <pre><xmp>{{calcKeyPad.nodeController.buildTreeNode(nodeId)}}</xmp></pre>
+                    </div>
+                  </template>
+                </v-col>
+              <v-col cols="4">
+                  Scope
+                  <pre><xmp>{{calcKeyPad.expressionScope.value}}</xmp></pre>
+                  <br/>
+                  Expression Colours
+                  <pre><xmp>{{calcKeyPad.expressionColor.value}}</xmp></pre>
+                </v-col>
+               <v-col cols="4">
+                  Node Map
+                  <pre><xmp>{{calcKeyPad.nodeController.nodeMap.value}}</xmp></pre>
+                </v-col>
+            </v-row>
+  
+            
+  
+            
+  
+            
+          </v-card>
+
+        </v-card>
+        <v-divider></v-divider>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          
+        </v-card-actions>
+      </v-card>
+
+    </v-container>
+  </v-app>
+</div>
+<!-- partial -->
+  <script src='https://cdn.jsdelivr.net/npm/babel-polyfill/dist/polyfill.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/vuetify@2.2.15/dist/vuetify.min.js'></script>
+<script src='https://unpkg.com/@vue/composition-api@0.3.1/dist/vue-composition-api.umd.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.6.1/math.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/sortablejs@1.8.4/Sortable.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/Vue.Draggable/2.20.0/vuedraggable.umd.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/xregexp/3.2.0/xregexp-all.min.js'></script><script  src="./script.js"></script>
+
+</body>
+</html>
