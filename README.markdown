@@ -11,6 +11,7 @@ Features:
  - Reference an expression using `#(expressionNum)`
  - Reference the value of a node using `@(nodeId)`
  - Add percentage onto a base value `200 + 15% = 230`
+ - Double-click to edit of previous values
 
 
 Drag-and-drop expression building coming soon.
